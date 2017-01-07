@@ -1,0 +1,8 @@
+[Unit]
+Description=example Socket
+
+[Socket]
+ListenStream=/var/run/example.socket
+
+[Install]
+WantedBy=sockets.target

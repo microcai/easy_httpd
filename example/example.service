@@ -1,0 +1,14 @@
+[Unit]
+Description=example daemon
+After=syslog.target network.target example.socket
+Requires=example.socket
+
+[Service]
+Type=notify
+ExecStart=path-example-excutable
+Restart=on-failure
+NotifyAccess=main
+
+[Install]
+WantedBy=multi-user.target
+
