@@ -8,8 +8,9 @@ using namespace boost::posix_time;
 
 namespace http {
 
-	http_server::http_server(boost::asio::io_service& ios)
+	http_server::http_server(boost::asio::io_service& ios, int multi_accept)
 		: m_io_service(ios)
+		, m_multi_accept(multi_accept)
 		, m_listening(false)
 		, m_timer(m_io_service)
 	{
@@ -87,11 +88,14 @@ namespace http {
 	{
 		if (!m_listening) return;
 
-		for (int i =0; i < m_acceptors.size(); i++)
+		for (int acceptor_idx =0; acceptor_idx < m_acceptors.size(); acceptor_idx++)
 		{
-			auto con = boost::make_shared<http_connection>(boost::ref(m_io_service), boost::ref(*this), &m_connection_manager);
-			m_connections.push_back(con);
-			m_acceptors[i]->async_accept(con->socket(), boost::bind(&http_server::handle_accept, this, boost::asio::placeholders::error, i));
+			for (int connection_idx =acceptor_idx* m_multi_accept; connection_idx < acceptor_idx * m_multi_accept + m_multi_accept ; ++connection_idx)
+			{
+				auto con = boost::make_shared<http_connection>(boost::ref(m_io_service), boost::ref(*this), &m_connection_manager);
+				m_connections.push_back(con);
+				m_acceptors[acceptor_idx]->async_accept(con->socket(), boost::bind(&http_server::handle_accept, this, boost::asio::placeholders::error, acceptor_idx, connection_idx));
+			}
 		}
 	}
 
@@ -104,22 +108,24 @@ namespace http {
 		m_timer.cancel(ignore_ec);
 	}
 
-	void http_server::handle_accept(const boost::system::error_code& error, int idx)
+	void http_server::handle_accept(const boost::system::error_code& error, int acceptor_idx, int connection_idx)
 	{
-		auto a = m_acceptors[idx];
+		auto a = m_acceptors[acceptor_idx];
 		if (!a->is_open() || error)
 		{
 			if (error)
 			{
 				sd_journal_print(LOG_ERR, "http_server::handle_accept, error: %s", error.message());
-				return;
 			}
 		}
 
-		m_connection_manager.start(m_connections[idx]);
+		if (!error)
+		{
+			m_connection_manager.start(m_connections[connection_idx]);
+		}
 
-		m_connections[idx] = boost::make_shared<http_connection>(boost::ref(m_io_service), boost::ref(*this), &m_connection_manager);
-		a->async_accept(m_connections[idx]->socket(), boost::bind(&http_server::handle_accept, this, boost::asio::placeholders::error, idx));
+		m_connections[connection_idx] = boost::make_shared<http_connection>(boost::ref(m_io_service), boost::ref(*this), &m_connection_manager);
+		a->async_accept(m_connections[connection_idx]->socket(), boost::bind(&http_server::handle_accept, this, boost::asio::placeholders::error, acceptor_idx, connection_idx));
 	}
 
 	void http_server::on_tick(const boost::system::error_code& error)

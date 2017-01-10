@@ -27,8 +27,8 @@ namespace http {
 		boost::system::error_code ignore_ec;
 		m_socket.set_option(tcp::no_delay(true), ignore_ec);
 
-		if (ignore_ec)
-			sd_journal_print(LOG_ERR, "http_connection::start, Set option to nodelay, error message : %s", ignore_ec.message());
+//		if (ignore_ec)
+//			sd_journal_print(LOG_ERR, "http_connection::start, Set option to nodelay, error message : %s", ignore_ec.message());
 
 		boost::asio::async_read_until(m_socket, m_request, "\r\n\r\n",
 			boost::bind(&http_connection::handle_read_headers,
@@ -167,6 +167,7 @@ namespace http {
 		std::ostream out(&m_response);
 
 		out << "HTTP/" << m_http_request.http_version_major << "." << m_http_request.http_version_minor << " 200 OK\r\n";
+		out << "Server: easy_httpd 1.0 on Boost " BOOST_LIB_VERSION "\r\n";
 		out << "Content-Type: application/json\r\n";
 		out << "Content-Length: " << body.length() << "\r\n";
 		out << "\r\n";

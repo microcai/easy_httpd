@@ -26,7 +26,7 @@ namespace http {
 	{
 		friend class http_connection;
 	public:
-		http_server(boost::asio::io_service& ios);
+		http_server(boost::asio::io_service& ios, int multi_accept = 2);
 		~http_server();
 
 	public:
@@ -40,7 +40,7 @@ namespace http {
 		bool add_uri_handler(const std::string& uri, http_request_callback);
 
 	private:
-		void handle_accept(const boost::system::error_code& error, int idx);
+		void handle_accept(const boost::system::error_code& error, int acceptor_idx, int connection_idx);
 		void on_tick(const boost::system::error_code& error);
 
 		// 收到一个 http request 的时候调用
@@ -55,6 +55,7 @@ namespace http {
 		boost::asio::deadline_timer m_timer;
 		boost::shared_mutex m_request_callback_mtx;
 		http_request_callback_table m_http_request_callbacks;
+		const int m_multi_accept;
 	};
 
 }
